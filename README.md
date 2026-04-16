@@ -1,6 +1,6 @@
 # hibachi-go
 
-Go SDK for the [Hibachi](https://hibachi.xyz) decentralized perpetual futures exchange.
+Unofficial Go SDK for the [Hibachi](https://hibachi.xyz) decentralized perpetual futures exchange. Not affiliated with Hibachi.
 
 - Public REST endpoints for market data (no auth)
 - Authenticated REST endpoints for trading, accounts, and capital flows
