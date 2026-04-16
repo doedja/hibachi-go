@@ -12,9 +12,8 @@ Requires Go 1.25 or newer.
 
 ## Sign up
 
-Don't have a Hibachi account yet? Use the referral link to get started:
-[hibachi.xyz/r/hoshii](https://hibachi.xyz/r/hoshii). You get a fee rebate
-and I get one too — it's how this SDK stays maintained.
+New to Hibachi? Ride in on my referral: [hibachi.xyz/r/hoshii](https://hibachi.xyz/r/hoshii).
+Fee rebate for you, kickback for me. Good deal.
 
 ## Install
 
