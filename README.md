@@ -10,6 +10,12 @@ Go SDK for the [Hibachi](https://hibachi.xyz) decentralized perpetual futures ex
 
 Requires Go 1.25 or newer.
 
+## Sign up
+
+Don't have a Hibachi account yet? Use the referral link to get started:
+[hibachi.xyz/r/hoshii](https://hibachi.xyz/r/hoshii). You get a fee rebate
+and I get one too — it's how this SDK stays maintained.
+
 ## Install
 
 ```
