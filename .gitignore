@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# Editor
+.idea/
+.vscode/
+*.swp
+
+# Go build output
+/bin/
+*.test
+*.out
+coverage.txt
+
+# Local env
+.env
+.env.local
+
+# Local agent/tooling state — not part of the SDK
+.claude/
+CLAUDE.md
