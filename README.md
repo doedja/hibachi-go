@@ -231,7 +231,7 @@ All three WebSocket clients reconnect automatically.
   fresh snapshot + listen key, restarts the ping loop.
 - **Trade**: reconnects lazily on the next call after a failure. The call
   that hits the dead connection returns `*hibachi.WSConnectionError` so the
-  caller's operation fails cleanly — nothing is retried automatically, which
+  caller's operation fails cleanly. Nothing is retried automatically, which
   avoids duplicate orders.
 
 Register `OnDisconnect(func(error))` and `OnReconnect(...)` to observe the
@@ -287,7 +287,7 @@ The order payload layout for reference:
  8..12  contractId     big-endian int32
 12..20  quantity       big-endian int64, scaled by 10^underlyingDecimals
 20..24  side           0 = ASK / SELL, 1 = BID / BUY
-[24..32 price          big-endian int64, price * 2^32 * 10^(settlementDecimals - underlyingDecimals) — LIMIT only]
+[24..32 price          big-endian int64, price * 2^32 * 10^(settlementDecimals - underlyingDecimals), LIMIT only]
 N..N+8  maxFeesPercent big-endian int64, scaled by 10^8
 ```
 
@@ -298,10 +298,10 @@ it (40 bytes). `CreateOrderPayload` and `PriceToBytes` implement this.
 
 Runnable examples live in `examples/`:
 
-- `examples/rest` — public REST calls, authenticated trading is commented out
-- `examples/ws_market` — subscribe to `mark_price` and `trades`
-- `examples/ws_account` — stream balance, position, and order events
-- `examples/ws_trade` — place + cancel a limit order end-to-end
+- `examples/rest`: public REST calls, authenticated trading is commented out
+- `examples/ws_market`: subscribe to `mark_price` and `trades`
+- `examples/ws_account`: stream balance, position, and order events
+- `examples/ws_trade`: place + cancel a limit order end-to-end
 
 Run the WebSocket examples with credentials in env vars:
 
