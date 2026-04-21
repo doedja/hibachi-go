@@ -1,5 +1,10 @@
 package hibachi
 
+import (
+	"encoding/json"
+	"fmt"
+)
+
 // Interval represents kline/candlestick intervals.
 type Interval string
 
@@ -207,12 +212,12 @@ type Order struct {
 	AccountID          int         `json:"accountId"`
 	AvailableQuantity  string      `json:"availableQuantity"`
 	ContractID         *int        `json:"contractId"`
-	CreationTime       *int64      `json:"creationTime"`
-	FinishTime         *int64      `json:"finishTime"`
+	CreationTime       *int64      `json:"-"`
+	FinishTime         *int64      `json:"-"`
 	NumOrdersRemaining *int        `json:"numOrdersRemaining"`
 	NumOrdersTotal     *int        `json:"numOrdersTotal"`
 	OrderFlags         *OrderFlags `json:"orderFlags"`
-	OrderID            int64       `json:"orderId"`
+	OrderID            int64       `json:"-"`
 	OrderType          OrderType   `json:"orderType"`
 	Price              *string     `json:"price"`
 	QuantityMode       *string     `json:"quantityMode"`
@@ -221,6 +226,52 @@ type Order struct {
 	Symbol             string      `json:"symbol"`
 	TotalQuantity      *string     `json:"totalQuantity"`
 	TriggerPrice       *string     `json:"triggerPrice"`
+}
+
+// UnmarshalJSON handles server responses that send orderId, creationTime,
+// and finishTime as either numbers or decimal strings.
+func (o *Order) UnmarshalJSON(data []byte) error {
+	type alias Order
+	aux := struct {
+		*alias
+		OrderIDRaw       json.RawMessage `json:"orderId"`
+		CreationTimeRaw  json.RawMessage `json:"creationTime"`
+		FinishTimeRaw    json.RawMessage `json:"finishTime"`
+	}{alias: (*alias)(o)}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if n, ok := parseFlexInt64(aux.OrderIDRaw); ok {
+		o.OrderID = n
+	}
+	if n, ok := parseFlexInt64(aux.CreationTimeRaw); ok {
+		o.CreationTime = &n
+	}
+	if n, ok := parseFlexInt64(aux.FinishTimeRaw); ok {
+		o.FinishTime = &n
+	}
+	return nil
+}
+
+// parseFlexInt64 accepts either a JSON number or a decimal string containing
+// an int64. Returns (0, false) for null, empty, or unparseable input.
+func parseFlexInt64(raw json.RawMessage) (int64, bool) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return 0, false
+	}
+	var n int64
+	if err := json.Unmarshal(raw, &n); err == nil {
+		return n, true
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil && s != "" {
+		var parsed int64
+		_, err := fmt.Sscanf(s, "%d", &parsed)
+		if err == nil {
+			return parsed, true
+		}
+	}
+	return 0, false
 }
 
 // CapitalBalance represents account capital balance.
@@ -237,10 +288,21 @@ type CapitalHistory struct {
 
 // Transaction represents a single capital transaction.
 type Transaction struct {
+	// Legacy fields kept for backwards compatibility.
 	Asset      string `json:"asset"`
 	Amount     string `json:"amount"`
-	Status     string `json:"status"`
 	UpdateTime int64  `json:"updateTime"`
+
+	// Current server fields.
+	Quantity        string `json:"quantity"`
+	Token           string `json:"token"`
+	TimestampSec    int64  `json:"timestampSec"`
+	Status          string `json:"status"`
+	TransactionType string `json:"transactionType"` // "deposit" | "withdrawal"
+	TransactionHash string `json:"transactionHash"`
+	Chain           string `json:"chain"`
+	ID              int64  `json:"id"`
+	AssetID         int    `json:"assetId"`
 }
 
 // AccountInfo represents account information.
@@ -268,12 +330,18 @@ type Position struct {
 
 // AccountTrade represents a trade executed on the account.
 type AccountTrade struct {
-	Symbol   string `json:"symbol"`
-	OrderID  int64  `json:"orderId"`
-	Price    string `json:"price"`
-	Quantity string `json:"quantity"`
-	Side     Side   `json:"side"`
-	Time     int64  `json:"time"`
+	Symbol      string `json:"symbol"`
+	OrderID     int64  `json:"orderId"`
+	AskOrderID  int64  `json:"askOrderId"`
+	BidOrderID  int64  `json:"bidOrderId"`
+	Price       string `json:"price"`
+	Quantity    string `json:"quantity"`
+	Side        Side   `json:"side"`
+	Time        int64  `json:"time"`
+	Timestamp   int64  `json:"timestamp"`
+	Fee         string `json:"fee"`
+	RealizedPnl string `json:"realizedPnl"`
+	IsTaker     bool   `json:"is_taker"`
 }
 
 // Settlement represents a funding settlement.

@@ -3,12 +3,13 @@ package hibachi
 import "encoding/json"
 
 // WSSubscription represents a WebSocket subscription request.
+// Granularity is a string on the wire (server accepts e.g. "1", "10", "0.1").
 type WSSubscription struct {
 	Topic       WSSubscriptionTopic `json:"topic"`
 	Symbol      string              `json:"symbol"`
 	Interval    *Interval           `json:"interval,omitempty"`
 	Depth       *int                `json:"depth,omitempty"`
-	Granularity *int                `json:"granularity,omitempty"`
+	Granularity *string             `json:"granularity,omitempty"`
 }
 
 // WSResponse represents a WebSocket response message.

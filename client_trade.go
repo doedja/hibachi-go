@@ -2,6 +2,7 @@ package hibachi
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -99,6 +100,14 @@ func (c *Client) GetAccountTrades(ctx context.Context) ([]AccountTrade, error) {
 		return nil, err
 	}
 
+	// Server wraps trades in an object: {"trades": [...]}. Fall back to a
+	// bare array for older endpoints.
+	var wrapped struct {
+		Trades []AccountTrade `json:"trades"`
+	}
+	if err := json.Unmarshal(data, &wrapped); err == nil && wrapped.Trades != nil {
+		return wrapped.Trades, nil
+	}
 	var resp []AccountTrade
 	if err := json.Unmarshal(data, &resp); err != nil {
 		return nil, fmt.Errorf("unmarshaling account trades: %w", err)
@@ -201,6 +210,7 @@ func (c *Client) PlaceMarketOrder(ctx context.Context, symbol string, side Side,
 	body := map[string]interface{}{
 		"accountId":      c.accountID,
 		"contractId":     contract.ID,
+		"symbol":         symbol,
 		"nonce":          nonce,
 		"side":           string(side),
 		"quantity":       FullPrecisionString(quantity),
@@ -258,6 +268,7 @@ func (c *Client) PlaceLimitOrder(ctx context.Context, symbol string, side Side, 
 	body := map[string]interface{}{
 		"accountId":      c.accountID,
 		"contractId":     contract.ID,
+		"symbol":         symbol,
 		"nonce":          nonce,
 		"side":           string(side),
 		"quantity":       FullPrecisionString(quantity),
@@ -344,6 +355,7 @@ func (c *Client) UpdateOrder(ctx context.Context, update UpdateOrder) (*PlaceOrd
 	body := map[string]interface{}{
 		"accountId":      c.accountID,
 		"contractId":     contract.ID,
+		"symbol":         update.Symbol,
 		"orderId":        update.OrderID,
 		"nonce":          nonce,
 		"side":           string(update.Side),
@@ -384,18 +396,23 @@ func (c *Client) CancelOrder(ctx context.Context, cancel CancelOrder) error {
 		"accountId": c.accountID,
 	}
 
+	// Server expects orderId and nonce as decimal strings.
 	if cancel.OrderID != nil {
-		body["orderId"] = *cancel.OrderID
+		body["orderId"] = fmt.Sprintf("%d", *cancel.OrderID)
 	} else if cancel.Nonce != nil {
-		body["nonce"] = *cancel.Nonce
+		body["nonce"] = fmt.Sprintf("%d", *cancel.Nonce)
 	}
 
-	// Sign the cancel request
+	// Server signs cancel with the 8-byte big-endian representation of the
+	// target (orderId or nonce). The previous decimal-string signing produced
+	// MacError on the server.
 	var signData []byte
 	if cancel.OrderID != nil {
-		signData = []byte(fmt.Sprintf("%d", *cancel.OrderID))
+		signData = make([]byte, 8)
+		binary.BigEndian.PutUint64(signData, uint64(*cancel.OrderID))
 	} else if cancel.Nonce != nil {
-		signData = []byte(fmt.Sprintf("%d", *cancel.Nonce))
+		signData = make([]byte, 8)
+		binary.BigEndian.PutUint64(signData, uint64(*cancel.Nonce))
 	}
 
 	signature, err := c.signer.Sign(signData)
