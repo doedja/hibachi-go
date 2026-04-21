@@ -352,23 +352,25 @@ func (c *Client) UpdateOrder(ctx context.Context, update UpdateOrder) (*PlaceOrd
 		return nil, fmt.Errorf("signing order update: %w", err)
 	}
 
+	// Server expects update-specific field names (updatedQuantity, updatedPrice)
+	// and orderId as a decimal string.
 	body := map[string]interface{}{
-		"accountId":      c.accountID,
-		"contractId":     contract.ID,
-		"symbol":         update.Symbol,
-		"orderId":        update.OrderID,
-		"nonce":          nonce,
-		"side":           string(update.Side),
-		"quantity":       FullPrecisionString(update.Quantity),
-		"maxFeesPercent": FullPrecisionString(update.MaxFeesPercent),
-		"signature":      signature,
+		"accountId":        c.accountID,
+		"contractId":       contract.ID,
+		"symbol":           update.Symbol,
+		"orderId":          fmt.Sprintf("%d", update.OrderID),
+		"nonce":            nonce,
+		"side":             string(update.Side),
+		"updatedQuantity":  FullPrecisionString(update.Quantity),
+		"maxFeesPercent":   FullPrecisionString(update.MaxFeesPercent),
+		"signature":        signature,
 	}
 
 	if update.Price != nil {
-		body["price"] = FullPrecisionString(*update.Price)
+		body["updatedPrice"] = FullPrecisionString(*update.Price)
 	}
 	if update.TriggerPrice != nil {
-		body["triggerPrice"] = FullPrecisionString(*update.TriggerPrice)
+		body["updatedTriggerPrice"] = FullPrecisionString(*update.TriggerPrice)
 	}
 	if update.CreationDeadline != nil {
 		body["creationDeadline"] = *update.CreationDeadline
@@ -431,12 +433,24 @@ func (c *Client) CancelAllOrders(ctx context.Context) error {
 		return err
 	}
 
-	body := map[string]interface{}{
-		"accountId": c.accountID,
-		"cancelAll": true,
+	// Server requires a signed nonce on DELETE /trade/order/all. Without it
+	// the endpoint returns 200 but silently no-ops. The payload signed is the
+	// 8-byte big-endian nonce (same as WS orders.cancel).
+	nonce := c.generateNonce()
+	nonceBuf := make([]byte, 8)
+	binary.BigEndian.PutUint64(nonceBuf, uint64(nonce))
+	signature, err := c.signer.Sign(nonceBuf)
+	if err != nil {
+		return fmt.Errorf("signing cancel-all: %w", err)
 	}
 
-	_, err := c.transport.SendAuthorizedRequest(ctx, c.apiURL, http.MethodDelete, "/trade/order", body, c.apiKey)
+	body := map[string]interface{}{
+		"accountId": c.accountID,
+		"nonce":     nonce,
+		"signature": signature,
+	}
+
+	_, err = c.transport.SendAuthorizedRequest(ctx, c.apiURL, http.MethodDelete, "/trade/order/all", body, c.apiKey)
 	return err
 }
 
