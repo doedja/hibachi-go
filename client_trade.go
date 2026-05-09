@@ -189,6 +189,8 @@ func (c *Client) PlaceMarketOrder(ctx context.Context, symbol string, side Side,
 		return nil, err
 	}
 
+	quantity = RoundQuantityToStep(quantity, contractStep(contract))
+
 	nonce := c.generateNonce()
 
 	payload := CreateOrderPayload(
@@ -245,6 +247,27 @@ func (c *Client) PlaceLimitOrder(ctx context.Context, symbol string, side Side, 
 	options := &orderOptions{}
 	for _, opt := range opts {
 		opt(options)
+	}
+
+	tick := contractTick(contract)
+	step := contractStep(contract)
+	quantity = RoundQuantityToStep(quantity, step)
+	price = RoundPriceToTick(price, tick)
+	if options.triggerPrice != nil {
+		t := RoundPriceToTick(*options.triggerPrice, tick)
+		options.triggerPrice = &t
+	}
+	if options.tpslConfig != nil {
+		legs := make([]TPSLLeg, len(options.tpslConfig.Legs))
+		for i, leg := range options.tpslConfig.Legs {
+			leg.Price = RoundPriceToTick(leg.Price, tick)
+			if leg.Quantity != nil {
+				q := RoundQuantityToStep(*leg.Quantity, step)
+				leg.Quantity = &q
+			}
+			legs[i] = leg
+		}
+		options.tpslConfig = &TPSLConfig{Legs: legs}
 	}
 
 	nonce := c.generateNonce()
@@ -332,6 +355,18 @@ func (c *Client) UpdateOrder(ctx context.Context, update UpdateOrder) (*PlaceOrd
 	contract, err := c.getContract(ctx, update.Symbol)
 	if err != nil {
 		return nil, err
+	}
+
+	tick := contractTick(contract)
+	step := contractStep(contract)
+	update.Quantity = RoundQuantityToStep(update.Quantity, step)
+	if update.Price != nil {
+		p := RoundPriceToTick(*update.Price, tick)
+		update.Price = &p
+	}
+	if update.TriggerPrice != nil {
+		t := RoundPriceToTick(*update.TriggerPrice, tick)
+		update.TriggerPrice = &t
 	}
 
 	nonce := c.generateNonce()
@@ -479,6 +514,18 @@ func (c *Client) BatchOrders(ctx context.Context, orders []BatchOrderAction) (*B
 				return nil, err
 			}
 
+			tick := contractTick(contract)
+			step := contractStep(contract)
+			o.Quantity = RoundQuantityToStep(o.Quantity, step)
+			if o.Price != nil {
+				p := RoundPriceToTick(*o.Price, tick)
+				o.Price = &p
+			}
+			if o.TriggerPrice != nil {
+				t := RoundPriceToTick(*o.TriggerPrice, tick)
+				o.TriggerPrice = &t
+			}
+
 			nonce := c.generateNonce()
 
 			payload := CreateOrderPayload(
@@ -539,6 +586,18 @@ func (c *Client) BatchOrders(ctx context.Context, orders []BatchOrderAction) (*B
 			contract, err := c.getContract(ctx, o.Symbol)
 			if err != nil {
 				return nil, err
+			}
+
+			tick := contractTick(contract)
+			step := contractStep(contract)
+			o.Quantity = RoundQuantityToStep(o.Quantity, step)
+			if o.Price != nil {
+				p := RoundPriceToTick(*o.Price, tick)
+				o.Price = &p
+			}
+			if o.TriggerPrice != nil {
+				t := RoundPriceToTick(*o.TriggerPrice, tick)
+				o.TriggerPrice = &t
 			}
 
 			nonce := c.generateNonce()
