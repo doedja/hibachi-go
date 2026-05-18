@@ -40,10 +40,17 @@ func WithOrderFlags(flags OrderFlags) OrderOption {
 	}
 }
 
-// WithCreationDeadline sets a creation deadline as relative seconds from now.
+// WithCreationDeadline sets a creation deadline relative to now. The order is
+// rejected if the matching engine processes it more than `seconds` from the
+// time this option is applied.
+//
+// The Hibachi API expects creationDeadline as a non-negative integer number of
+// microseconds since the Unix epoch (the older float-seconds format is now
+// rejected), so the relative duration is converted to an absolute microsecond
+// timestamp here.
 func WithCreationDeadline(seconds int64) OrderOption {
 	return func(o *orderOptions) {
-		deadline := time.Now().Unix() + seconds
+		deadline := time.Now().Add(time.Duration(seconds) * time.Second).UnixMicro()
 		o.creationDeadline = &deadline
 	}
 }
@@ -390,15 +397,15 @@ func (c *Client) UpdateOrder(ctx context.Context, update UpdateOrder) (*PlaceOrd
 	// Server expects update-specific field names (updatedQuantity, updatedPrice)
 	// and orderId as a decimal string.
 	body := map[string]interface{}{
-		"accountId":        c.accountID,
-		"contractId":       contract.ID,
-		"symbol":           update.Symbol,
-		"orderId":          fmt.Sprintf("%d", update.OrderID),
-		"nonce":            nonce,
-		"side":             string(update.Side),
-		"updatedQuantity":  FullPrecisionString(update.Quantity),
-		"maxFeesPercent":   FullPrecisionString(update.MaxFeesPercent),
-		"signature":        signature,
+		"accountId":       c.accountID,
+		"contractId":      contract.ID,
+		"symbol":          update.Symbol,
+		"orderId":         fmt.Sprintf("%d", update.OrderID),
+		"nonce":           nonce,
+		"side":            string(update.Side),
+		"updatedQuantity": FullPrecisionString(update.Quantity),
+		"maxFeesPercent":  FullPrecisionString(update.MaxFeesPercent),
+		"signature":       signature,
 	}
 
 	if update.Price != nil {

@@ -16,21 +16,27 @@ type CreateOrder struct {
 	TriggerPrice     *decimal.Decimal  `json:"triggerPrice,omitempty"`
 	TriggerDirection *TriggerDirection `json:"triggerDirection,omitempty"`
 	TWAPConfig       *TWAPConfig       `json:"twapConfig,omitempty"`
-	CreationDeadline *int64            `json:"creationDeadline,omitempty"`
-	ParentOrder      *OrderIdVariant   `json:"parentOrder,omitempty"`
-	OrderFlags       *OrderFlags       `json:"orderFlags,omitempty"`
+	// CreationDeadline is microseconds since the Unix epoch. The order is
+	// rejected if processed after this time. Nil means no deadline. The
+	// legacy float-seconds format is rejected by the API; use the absolute
+	// microsecond timestamp (e.g. time.Now().Add(d).UnixMicro()).
+	CreationDeadline *int64          `json:"creationDeadline,omitempty"`
+	ParentOrder      *OrderIdVariant `json:"parentOrder,omitempty"`
+	OrderFlags       *OrderFlags     `json:"orderFlags,omitempty"`
 }
 
 // UpdateOrder represents a request to update an existing order.
 type UpdateOrder struct {
-	OrderID          int64            `json:"orderId"`
-	Symbol           string           `json:"symbol"`
-	Side             Side             `json:"side"`
-	Quantity         decimal.Decimal  `json:"quantity"`
-	MaxFeesPercent   decimal.Decimal  `json:"maxFeesPercent"`
-	Price            *decimal.Decimal `json:"price,omitempty"`
-	TriggerPrice     *decimal.Decimal `json:"triggerPrice,omitempty"`
-	CreationDeadline *int64           `json:"creationDeadline,omitempty"`
+	OrderID        int64            `json:"orderId"`
+	Symbol         string           `json:"symbol"`
+	Side           Side             `json:"side"`
+	Quantity       decimal.Decimal  `json:"quantity"`
+	MaxFeesPercent decimal.Decimal  `json:"maxFeesPercent"`
+	Price          *decimal.Decimal `json:"price,omitempty"`
+	TriggerPrice   *decimal.Decimal `json:"triggerPrice,omitempty"`
+	// CreationDeadline is microseconds since the Unix epoch. See
+	// CreateOrder.CreationDeadline.
+	CreationDeadline *int64 `json:"creationDeadline,omitempty"`
 }
 
 // CancelOrder represents a request to cancel an order.

@@ -50,6 +50,21 @@ const (
 	OrderStatusPartiallyFilled OrderStatus = "PARTIALLY_FILLED"
 )
 
+// OrderCancelReason is a machine-readable reason an order was cancelled. It is
+// populated on Order.CancelReason when Status is CANCELLED and on the
+// order_cancellation account stream event. The set may grow server-side, so
+// treat unknown values as informational rather than exhaustive.
+type OrderCancelReason string
+
+const (
+	CancelReasonUserCanceled           OrderCancelReason = "USER_CANCELED"
+	CancelReasonSystemCanceled         OrderCancelReason = "SYSTEM_CANCELED"
+	CancelReasonExpired                OrderCancelReason = "EXPIRED"
+	CancelReasonSelfTradePrevention    OrderCancelReason = "SELF_TRADE_PREVENTION"
+	CancelReasonReduceOnlyViolation    OrderCancelReason = "REDUCE_ONLY_VIOLATION"
+	CancelReasonReduceOnlyPositionDone OrderCancelReason = "REDUCE_ONLY_POSITION_CLOSED"
+)
+
 // OrderFlags represents order execution flags.
 type OrderFlags string
 
@@ -226,6 +241,12 @@ type Order struct {
 	Symbol             string      `json:"symbol"`
 	TotalQuantity      *string     `json:"totalQuantity"`
 	TriggerPrice       *string     `json:"triggerPrice"`
+	// CancelReason is set when Status is CANCELLED. See OrderCancelReason.
+	CancelReason *OrderCancelReason `json:"cancelReason"`
+	// RejectionReason is a human-readable string ("Order rejected: ...")
+	// set when Status is REJECTED. The structured error variant is not
+	// surfaced here; this field replaced the older enum-object form.
+	RejectionReason *string `json:"rejectionReason"`
 }
 
 // UnmarshalJSON handles server responses that send orderId, creationTime,
@@ -234,9 +255,9 @@ func (o *Order) UnmarshalJSON(data []byte) error {
 	type alias Order
 	aux := struct {
 		*alias
-		OrderIDRaw       json.RawMessage `json:"orderId"`
-		CreationTimeRaw  json.RawMessage `json:"creationTime"`
-		FinishTimeRaw    json.RawMessage `json:"finishTime"`
+		OrderIDRaw      json.RawMessage `json:"orderId"`
+		CreationTimeRaw json.RawMessage `json:"creationTime"`
+		FinishTimeRaw   json.RawMessage `json:"finishTime"`
 	}{alias: (*alias)(o)}
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err

@@ -70,3 +70,46 @@ type AccountSnapshot struct {
 	Balance   string     `json:"balance"`
 	Positions []Position `json:"positions"`
 }
+
+// Account stream event names. The `event` field of an account WS message
+// carries one of these (the dispatcher in package ws keys handlers on it).
+const (
+	EventOrderRequestRejected = "order_request_rejected"
+	EventOrderCancellation    = "order_cancellation"
+	EventWithdrawRejection    = "withdraw_rejection"
+	EventTransferRejection    = "transfer_rejection"
+)
+
+// OrderRequestRejected is the `data` payload of an order_request_rejected
+// account stream event. Prefer RejectionReason for display; parse Error only
+// when the structured fields are needed.
+type OrderRequestRejected struct {
+	OrderID         string          `json:"orderId"`
+	Symbol          string          `json:"symbol"`
+	Error           json.RawMessage `json:"error"`
+	RejectionReason string          `json:"rejectionReason"`
+	RequestType     string          `json:"requestType"`
+}
+
+// OrderCancellation is the `data` payload of an order_cancellation account
+// stream event. Reason distinguishes user-initiated from engine-initiated
+// cancellations. See OrderCancelReason.
+type OrderCancellation struct {
+	OrderID string            `json:"orderId"`
+	Reason  OrderCancelReason `json:"reason"`
+}
+
+// WithdrawRejection is the `data` payload of a withdraw_rejection account
+// stream event. IsInstantWithdrawal distinguishes a standard withdrawal
+// rejection from an instant-withdrawal rejection.
+type WithdrawRejection struct {
+	IsInstantWithdrawal bool            `json:"isInstantWithdrawal"`
+	Error               json.RawMessage `json:"error,omitempty"`
+}
+
+// TransferRejection is the `data` payload of a transfer_rejection account
+// stream event, emitted when an internal transfer between accounts is
+// rejected by the ledger.
+type TransferRejection struct {
+	Error json.RawMessage `json:"error,omitempty"`
+}
