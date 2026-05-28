@@ -7,6 +7,7 @@ Unofficial Go SDK for the [Hibachi](https://hibachi.xyz) decentralized perpetual
 - WebSocket clients for market data, account streams, and trade execution
 - Auto-reconnect on all three WebSocket clients
 - Typed error hierarchy for precise handling
+- Crypto and FX perpetual markets. FX contracts trade on a schedule, so `FutureContract` exposes `IsFX()`, `MarketOpen(now)`, `NextClose()`, and `TimeToClose(now)`
 
 Requires Go 1.25 or newer.
 
@@ -59,10 +60,47 @@ func main() {
 
 Available REST methods on `Client`:
 
-- Market: `GetExchangeInfo`, `GetInventory`, `GetPrices`, `GetStats`, `GetTrades`, `GetKlines`, `GetOpenInterest`, `GetOrderbook`
+- Market: `GetExchangeInfo`, `GetInventory`, `GetPrices`, `GetStats`, `GetTrades`, `GetKlines`, `GetFundingRates`, `GetOpenInterest`, `GetOrderbook`
 - Account: `GetAccountInfo`, `GetAccountTrades`, `GetSettlementsHistory`, `GetPendingOrders`, `GetOrderDetails`
 - Trading: `PlaceMarketOrder`, `PlaceLimitOrder`, `UpdateOrder`, `CancelOrder`, `CancelAllOrders`, `BatchOrders`
 - Capital: `GetCapitalBalance`, `GetCapitalHistory`, `GetDepositInfo`, `Withdraw`, `Transfer`
+
+## FX markets
+
+Alongside crypto, the exchange lists FX perpetuals (e.g. `EUR/USDT-P`,
+`GBP/USDT-P`, `AUD/USDT-P`). They carry `category` `"FX"` and, unlike crypto,
+close on weekends. `FutureContract` surfaces this so callers can avoid quoting
+into a closed market:
+
+```go
+info, _ := client.GetExchangeInfo(ctx)
+for _, c := range info.FutureContracts {
+    if !c.IsFX() {
+        continue
+    }
+    if c.MarketOpen(time.Now()) {
+        d, _ := c.TimeToClose(time.Now())
+        fmt.Printf("%s open, closes in %s\n", c.Symbol, d)
+    } else {
+        fmt.Printf("%s closed\n", c.Symbol)
+    }
+}
+```
+
+FX accounts are distinct from crypto accounts on Hibachi: an API key bound to a
+crypto account cannot trade FX contracts, and vice versa. Use the account ID of
+the matching account type.
+
+Historical data for charting:
+
+```go
+// OHLC candles over a window (Unix milliseconds).
+klines, _ := client.GetKlines(ctx, "EUR/USDT-P", hibachi.IntervalOneHour,
+    hibachi.WithKlineRange(fromMs, toMs))
+
+// Realized funding-rate history.
+rates, _ := client.GetFundingRates(ctx, "EUR/USDT-P", hibachi.WithFundingLimit(50))
+```
 
 ## Authenticated client
 

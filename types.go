@@ -138,10 +138,14 @@ type FutureContract struct {
 	StepSize                string   `json:"stepSize"`
 	TickSize                string   `json:"tickSize"`
 	Status                  string   `json:"status"`
+	SymbolStatus            string   `json:"symbolStatus"`
+	Category                string   `json:"category"`
 	OrderbookGranularities  []string `json:"orderbookGranularities"`
 	MarketCreationTimestamp *string  `json:"marketCreationTimestamp"`
 	MarketOpenTimestamp     *string  `json:"marketOpenTimestamp"`
 	MarketCloseTimestamp    *string  `json:"marketCloseTimestamp"`
+	NextOpenTimestamp       *string  `json:"nextOpenTimestamp"`
+	NextCloseTimestamp      *string  `json:"nextCloseTimestamp"`
 }
 
 // PriceResponse represents price data from the exchange.
@@ -196,6 +200,14 @@ type Kline struct {
 // KlinesResponse represents a list of klines.
 type KlinesResponse struct {
 	Klines []Kline `json:"klines"`
+}
+
+// FundingRate is a single realized funding-rate record.
+type FundingRate struct {
+	ContractID       int     `json:"contractId"`
+	FundingTimestamp float64 `json:"fundingTimestamp"` // Unix seconds, may be fractional
+	FundingRate      string  `json:"fundingRate"`
+	IndexPrice       string  `json:"indexPrice"`
 }
 
 // OrderBook represents the order book.
@@ -328,8 +340,13 @@ type Transaction struct {
 
 // AccountInfo represents account information.
 type AccountInfo struct {
-	Balance               string `json:"balance"`
-	TotalPositionNotional string `json:"totalPositionNotional"`
+	Balance               string     `json:"balance"`
+	TotalPositionNotional string     `json:"totalPositionNotional"`
+	TotalOrderNotional    string     `json:"totalOrderNotional"`
+	InitialMargin         string     `json:"initialMargin"`
+	MaintenanceMargin     string     `json:"maintenanceMargin"`
+	MaximalWithdraw       string     `json:"maximalWithdraw"`
+	Positions             []Position `json:"positions"`
 }
 
 // Position represents a futures position.

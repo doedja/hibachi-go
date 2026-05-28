@@ -84,9 +84,40 @@ func (c *Client) GetTrades(ctx context.Context, symbol string) (*TradesResponse,
 	return &resp, nil
 }
 
-// GetKlines retrieves kline/candlestick data for a symbol and interval.
-func (c *Client) GetKlines(ctx context.Context, symbol string, interval Interval) (*KlinesResponse, error) {
+// klineParams holds optional kline query parameters.
+type klineParams struct {
+	fromMs int64
+	toMs   int64
+}
+
+// KlineOption configures an optional kline query parameter.
+type KlineOption func(*klineParams)
+
+// WithKlineRange limits klines to the [fromMs, toMs] window (Unix
+// milliseconds). Either bound may be 0 to leave it open. Useful for pulling a
+// historical OHLC range for charting rather than just the latest candles.
+func WithKlineRange(fromMs, toMs int64) KlineOption {
+	return func(p *klineParams) {
+		p.fromMs = fromMs
+		p.toMs = toMs
+	}
+}
+
+// GetKlines retrieves kline/candlestick (OHLC) data for a symbol and interval.
+// By default the exchange returns its most recent candles; pass WithKlineRange
+// to fetch a specific historical window.
+func (c *Client) GetKlines(ctx context.Context, symbol string, interval Interval, opts ...KlineOption) (*KlinesResponse, error) {
+	var p klineParams
+	for _, o := range opts {
+		o(&p)
+	}
 	path := fmt.Sprintf("/market/data/klines?symbol=%s&interval=%s", symbol, string(interval))
+	if p.fromMs > 0 {
+		path += fmt.Sprintf("&fromMs=%d", p.fromMs)
+	}
+	if p.toMs > 0 {
+		path += fmt.Sprintf("&toMs=%d", p.toMs)
+	}
 	data, err := c.transport.SendSimpleRequest(ctx, c.dataAPIURL, path)
 	if err != nil {
 		return nil, err
@@ -97,6 +128,62 @@ func (c *Client) GetKlines(ctx context.Context, symbol string, interval Interval
 		return nil, fmt.Errorf("unmarshaling klines: %w", err)
 	}
 	return &resp, nil
+}
+
+// fundingRateParams holds optional funding-rate-history query parameters.
+type fundingRateParams struct {
+	startTime int64
+	endTime   int64
+	limit     int
+}
+
+// FundingRateOption configures an optional funding-rate-history query parameter.
+type FundingRateOption func(*fundingRateParams)
+
+// WithFundingRange limits funding-rate history to [startTime, endTime] (Unix
+// seconds). Either bound may be 0 to leave it open.
+func WithFundingRange(startTime, endTime int64) FundingRateOption {
+	return func(p *fundingRateParams) {
+		p.startTime = startTime
+		p.endTime = endTime
+	}
+}
+
+// WithFundingLimit caps the number of funding-rate records returned.
+func WithFundingLimit(limit int) FundingRateOption {
+	return func(p *fundingRateParams) { p.limit = limit }
+}
+
+// GetFundingRates retrieves historical realized funding rates for a symbol.
+// Each record carries the funding timestamp, the realized rate, and the index
+// price at that time. FX and crypto perps both report funding history.
+func (c *Client) GetFundingRates(ctx context.Context, symbol string, opts ...FundingRateOption) ([]FundingRate, error) {
+	var p fundingRateParams
+	for _, o := range opts {
+		o(&p)
+	}
+	path := fmt.Sprintf("/market/data/funding-rates?symbol=%s", symbol)
+	if p.startTime > 0 {
+		path += fmt.Sprintf("&startTime=%d", p.startTime)
+	}
+	if p.endTime > 0 {
+		path += fmt.Sprintf("&endTime=%d", p.endTime)
+	}
+	if p.limit > 0 {
+		path += fmt.Sprintf("&limit=%d", p.limit)
+	}
+	// The transport unwraps the {"data": [...]} envelope, so the body here is
+	// the bare array of funding-rate records (pagination is dropped upstream).
+	data, err := c.transport.SendSimpleRequest(ctx, c.dataAPIURL, path)
+	if err != nil {
+		return nil, err
+	}
+
+	var rates []FundingRate
+	if err := json.Unmarshal(data, &rates); err != nil {
+		return nil, fmt.Errorf("unmarshaling funding rates: %w", err)
+	}
+	return rates, nil
 }
 
 // GetOpenInterest retrieves open interest for a symbol.
