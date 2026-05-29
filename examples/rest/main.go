@@ -35,7 +35,7 @@ func main() {
 	fmt.Printf("\nBTC/USDT-P mark=%s spot=%s\n", prices.MarkPrice, prices.SpotPrice)
 
 	// Get order book.
-	book, err := client.GetOrderbook(ctx, "BTC/USDT-P", 5, 1)
+	book, err := client.GetOrderbook(ctx, "BTC/USDT-P", 5, "1")
 	if err != nil {
 		log.Fatal(err)
 	}

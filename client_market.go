@@ -201,9 +201,21 @@ func (c *Client) GetOpenInterest(ctx context.Context, symbol string) (*OpenInter
 	return &resp, nil
 }
 
-// GetOrderbook retrieves the order book for a symbol.
-func (c *Client) GetOrderbook(ctx context.Context, symbol string, depth int, granularity int) (*OrderBook, error) {
-	path := fmt.Sprintf("/market/data/orderbook?symbol=%s&depth=%d&granularity=%d", symbol, depth, granularity)
+// GetOrderbook retrieves the order book for a symbol. Granularity is the
+// price-bucket size as a string, matching the values in the contract's
+// OrderbookGranularities (e.g. "1", "0.01", or "0.00001" for FX). The exchange
+// rejects a granularity that is not in that list, so an integer form like "1"
+// is invalid for FX markets whose buckets are all sub-1.
+func (c *Client) GetOrderbook(ctx context.Context, symbol string, depth int, granularity string) (*OrderBook, error) {
+	if granularity == "" {
+		// Auto-pick a valid granularity: the contract's coarsest bucket. Falls
+		// back to "1" if the contract or its granularity list is unavailable.
+		granularity = "1"
+		if contract, err := c.getContract(ctx, symbol); err == nil && len(contract.OrderbookGranularities) > 0 {
+			granularity = contract.OrderbookGranularities[len(contract.OrderbookGranularities)-1]
+		}
+	}
+	path := fmt.Sprintf("/market/data/orderbook?symbol=%s&depth=%d&granularity=%s", symbol, depth, granularity)
 	data, err := c.transport.SendSimpleRequest(ctx, c.dataAPIURL, path)
 	if err != nil {
 		return nil, err
